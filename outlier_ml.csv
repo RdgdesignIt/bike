@@ -1,0 +1,7 @@
+data,luogo,superficie,id,anno,velocita,sellino,manubrio,diff_percentuale,unnamed:_9,unnamed:_10,unnamed:_11,unnamed:_12,z_manubrio,outlier_ml
+Dicembre,Cassino,Asfalto,A11,2024,10,8.04,9.24,14.93%,,,,,,-1
+Dicembre,Cassino,Asfalto,A6,2024,20,18.7,24.4,30.48%,,,,,,-1
+Dicembre,Cassino,Asfalto,A6,2024,23,20.1,25.3,25.87%,,,,,,-1
+Dicembre,Cassino,Asfalto,A9,2024,23,21.9,23.9,9.13%,,,,,,-1
+22-gen,Lungotevere,Asfalto,B3,2024,15,0.0,0.0,N/D,,,,,,-1
+22-gen,Lungotevere,Asfalto,B3,2024,20,0.0,0.0,N/D,,,,,,-1

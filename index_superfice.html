@@ -1,0 +1,534 @@
+  <!DOCTYPE html>
+  <html lang="it">
+  <head>
+    <meta charset="UTF-8">
+    <title>Tabella Bike</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+  </head>
+  <body class="bg-light p-4">
+
+
+
+    <div class="container">
+      <h2 class="mb-4">Dati Biciclette (Asfalto)</h2>
+
+      <!-- Filtri -->
+      <div class="row g-3 mb-4">
+        <div class="col">
+          <label>Data</label>
+          <select class="form-select select2" id="filter-data" multiple></select>
+        </div>
+
+        <div class="col">
+          <label>Anno</label>
+          <select class="form-select select2" id="filter-anno" multiple></select>
+        </div>
+        
+
+        <div class="col">
+          <label>Luogo</label>
+          <select class="form-select select2" id="filter-luogo" multiple></select>
+        </div>
+        
+
+        <div class="col">
+          <label>superficie</label>
+          <select class="form-select select2" id="filter-superficie" multiple></select>
+        </div>
+        
+
+        <div class="col">
+          <label>ID</label>
+          <select class="form-select select2" id="filter-id" multiple></select>
+        </div>
+
+        
+
+        
+        <div class="col">
+          <div class="row align-items-center mb-3">
+            <div class="">
+              <label for="filtro-velocita" class="form-label fw-bold">Filtra per velocità</label>
+              <select id="filtro-velocita" class="form-select" multiple>
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="23">23</option>
+                
+              </select>
+              <small class="text-muted">Tieni premuto Ctrl (o Cmd) per selezioni multiple</small>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      <button id="exportCSV" class="btn btn-success mt-3">Esporta dati CSV</button>
+      <button id="exportExcel" class="btn btn-success mt-3">Esporta in Excel</button>
+
+      <button id="downloadChart" class="btn btn-primary mt-2">Scarica grafico</button>
+
+      <div class="mt-3"></div>
+      <div class="btn btn-success form-control mb-3">
+        <label for="chartType" class="form-label">Tipo di grafico:</label>
+        <select id="chartType" class="form-select" style="width:auto; display:inline-block">
+          <option value="bar">Barre</option>
+          <option value="line">Linee</option>
+          <option value="radar">Radar</option>
+          <option value="polarArea">Area polare</option>
+          <option value="doughnut">Ciambella</option>
+        </select>
+      </div>
+      
+      <div class="container mt-4">
+          <canvas id="bikeChart" height="100"></canvas>
+        </div>
+
+
+      <!-- Tabella -->
+      <table id="bike-table" class="table table-striped" style="width:100%">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Id</th>
+            <th>Anno</th>
+            <th>Velocità</th>
+            <th>Luogo</th>
+            <th>superficie</th>
+            <th>Sellino</th>
+            <th>Manubrio</th>
+            <th>Diff Percentuale Manubrio/Sellino</th> <!-- nuova colonna -->
+          </tr>
+        </thead>
+        <tbody>
+          <!-- I dati saranno caricati dinamicamente -->
+        </tbody>
+      </table>
+    </div>
+
+  
+
+    <!-- Script -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+
+
+
+      $('.select2').select2();
+      $(document).ready(function () {
+
+        $('#exportExcel').on('click', function () {
+  const filteredData = table.rows({ search: 'applied' }).data().toArray();
+
+  if (filteredData.length === 0) {
+    alert("Nessun dato da esportare.");
+    return;
+  }
+
+  // Prepara intestazioni
+  const headers = ['Data', 'ID', 'Anno', 'Velocità', 'superficie', 'Sellino', 'Manubrio', 'Diff Percentuale'];
+
+const rows = filteredData.map(row => {
+  const sellino = parseFloat(row.sellino);
+  const manubrio = parseFloat(row.manubrio);
+  const diff = sellino && manubrio ? (((manubrio - sellino) / sellino) * 100).toFixed(2) + '%' : 'N/D';
+
+  return [row.data, row.id, row.anno, row.velocita, row.superficie, row.sellino, row.manubrio, diff];
+});
+
+
+    // Costruisci foglio
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dati Bicicletta');
+
+    // Esporta
+    XLSX.writeFile(wb, 'dati_bike_filtrati.xlsx');
+  });
+
+
+
+
+      const table = $('#bike-table').DataTable({
+        ajax: {
+          url: 'backend.php',
+          data: function (d) {
+            d.anno = $('#filter-anno').val()?.join(',') || '';
+            d.data = $('#filter-data').val()?.join(',') || '';
+            d.velocita = $('#filtro-velocita').val()?.join(',') || '';
+            d.id = $('#filter-id').val()?.join(',') || '';
+            d.luogo = $('#filter-luogo').val()?.join(',') || '';
+            d.superficie = $('#filter-superficie').val()?.join(',') || '';
+
+          }
+        },
+        error: function (xhr) {
+      console.error('❌ Risposta backend non valida:', xhr.responseText);
+    },
+        
+        rowId: 'id',
+        columns: [
+    { data: 'data' },
+    { data: 'id' },
+    { data: 'anno' },
+    { data: 'velocita' },
+    { data: 'luogo' },
+    { data: 'superficie' },   // nuova colonna
+    { data: 'sellino' },
+    { data: 'manubrio' },
+    {
+      data: null,
+      render: function (data, type, row) {
+        let s = parseFloat(row.sellino);
+        let m = parseFloat(row.manubrio);
+        if (isNaN(s) || isNaN(m) || s === 0) return '<span class="text-muted">N/D</span>';
+        return (((m - s) / s) * 100).toFixed(2) + '%';
+      }
+    }
+  ],
+        paging: false,
+        scrollY: false,
+        scrollCollapse: false,
+        info: false,
+        initComplete: function () {
+          this.api().columns().every(function () {
+            const column = this;
+            const colName = column.header().textContent
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]+/g, '-');
+            const selectId = "#filter-" + colName;
+            if (!$(selectId).length) return;
+            const uniqueValues = new Set();
+            column.data().each(d => uniqueValues.add(d));
+            $(selectId).empty().append(`<option value="">Tutti</option>`);
+            uniqueValues.forEach(d => {
+              $(selectId).append(`<option value="${d}">${d}</option>`);
+            });
+          });
+        }
+      });
+
+      $('#exportCSV').on('click', function () {
+    const filteredData = table.rows({ search: 'applied' }).data().toArray();
+    if (filteredData.length === 0) {
+      alert("Nessun dato da esportare.");
+      return;
+    }
+
+    const headers = ['Data', 'ID', 'Anno', 'Velocità', 'Sellino', 'Manubrio', 'Diff Percentuale'];
+    const rows = filteredData.map(row => {
+      const sellino = parseFloat(row.sellino);
+      const manubrio = parseFloat(row.manubrio);
+      const diff = sellino && manubrio ? (((manubrio - sellino) / sellino) * 100).toFixed(2) + '%' : 'N/D';
+
+      return [row.data, row.id, row.anno, row.velocita, row.sellino, row.manubrio, diff];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'dati_filtrati.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+
+      // 🔄 Filtri dinamici
+
+      function reloadTableAndChart() {
+    console.log("🔄 Reloading table and chart...");
+    table.ajax.reload();
+    fetchAndRenderChart();
+  }
+
+
+
+
+
+
+      // 🎯 ID dinamici da anno
+      $('#filter-anno').on('change', function () {
+        const selectedAnni = $(this).val();
+        const anniStr = selectedAnni?.join(',') || '';
+
+        // ID
+        $.ajax({
+          url: 'get_ids_by_anno.php',
+          data: { anno: anniStr },
+          success: function (ids) {
+            const $id = $('#filter-id');
+    $id.empty().append(`<option value="">Tutti</option>`);
+    ids.forEach(id => $id.append(`<option value="${id}">${id}</option>`));
+    $id.select2();
+
+    if ($id.hasClass("select2-hidden-accessible")) {
+    $id.select2('destroy');
+  }
+  $id.select2();
+
+
+          }
+        });
+
+        // DATA
+        $.ajax({
+          url: 'get_date_by_anno.php',
+          data: { anno: anniStr },
+          success: function (dates) {
+            const $data = $('#filter-data');
+    $data.empty().append(`<option value="">Tutte</option>`);
+    dates.forEach(d => $data.append(`<option value="${d}">${d}</option>`));
+    $data.select2();
+    if ($data.hasClass("select2-hidden-accessible")) {
+      $data.select2('destroy');
+    }
+    
+          }
+        });
+
+        
+
+    // get luoghi 
+
+    $.ajax({
+    url: 'get_luoghi.php',
+    success: function (luoghi) {
+      const $luogo = $('#filter-luogo');
+      $luogo.empty().append(`<option value="">Tutti</option>`);
+      luoghi.forEach(l => $luogo.append(`<option value="${l}">${l}</option>`));
+      $luogo.select2();
+    }
+  });
+
+        reloadTableAndChart();
+      });
+
+      $('#filter-superficie').on('change', function () {
+    const selectedsuperficie = $(this).val()?.join(',') || '';
+
+
+    $.ajax({
+      url: 'get_anni_by_superficie.php',
+      data: { superficie: selectedsuperficie },
+      success: function (anni) {
+        const $anno = $('#filter-anno');
+        $anno.empty().append(`<option value="">Tutti</option>`);
+        anni.forEach(a => $anno.append(`<option value="${a}">${a}</option>`));
+        $anno.select2();
+      }
+    });
+
+    $.ajax({
+      url: 'get_luoghi_by_superficie.php',
+      data: { superficie: selectedsuperficie },
+      success: function (luoghi) {
+        const $luogo = $('#filter-luogo');
+        $luogo.empty().append(`<option value="">Tutti</option>`);
+        luoghi.forEach(l => $luogo.append(`<option value="${l}">${l}</option>`));
+        $luogo.select2();
+      }
+    });
+
+    $.ajax({
+      url: 'get_id_by_superficie.php',
+      data: { superficie: selectedsuperficie },
+      success: function (ids) {
+        const $id = $('#filter-id');
+        $id.empty().append(`<option value="">Tutti</option>`);
+        ids.forEach(i => $id.append(`<option value="${i}">${i}</option>`));
+        $id.select2();
+      }
+    });
+
+    $.ajax({
+      url: 'get_date_by_superficie.php',
+      data: { superficie: selectedsuperficie },
+      success: function (dates) {
+        const $data = $('#filter-data');
+        $data.empty().append(`<option value="">Tutte</option>`);
+        dates.forEach(d => $data.append(`<option value="${d}">${d}</option>`));
+        $data.select2();
+      }
+    });
+
+    reloadTableAndChart();
+  });
+
+
+      // Altri filtri
+      $('#filter-id, #filter-data, #filter-superficie, #filter-anno, #filter-luogo, #filter-velocita').on('change', function () {
+    reloadTableAndChart();
+  });
+
+    });
+    
+
+        
+
+        let bikeChart;
+
+        
+        
+
+
+        function fetchAndRenderChart() {
+
+          const tipoGrafico = $('#chartType').val() || 'bar';
+
+      const selectedDates = $('#filter-data').val() || [];
+      const selectedVelocita = $('#filtro-velocita').val() || [];
+      const selectedAnni = $('#filter-anno').val() || [];
+    const selectedLuoghi = $('#filter-luogo').val() || [];
+    const selectedID = $('#filter-id').val() || [];
+    const selectedsuperficie = $('#filter-superficie').val() || [];
+
+
+      
+
+      // if (selectedDates.length === 0) return;
+
+      
+
+      const ajaxData = {
+        velocita: selectedVelocita.join(','),
+      date: selectedDates.join(','),
+      anno: selectedAnni.join(','),
+      luogo: selectedLuoghi.join(','),
+      id: selectedID.join(','),
+      superficie : selectedsuperficie.join(',')
+    };
+
+    
+    
+
+      $.ajax({
+        url: 'grafico_backend.php',
+        method: 'GET',
+        data: ajaxData,
+        success: function (response) {
+
+          const dati = Array.isArray(response) ? response : response.data || [];
+
+console.log("Parametri inviati:", ajaxData);
+console.log("📦 Dati ricevuti per il grafico:", response);
+console.log(`🎯 ${dati.length} righe ricevute dal backend`);
+
+
+
+          
+
+          if (!dati || dati.length === 0) {
+            if (bikeChart) bikeChart.destroy();
+            return;
+          }
+
+          console.log("Dati ricevuti:", dati);
+
+          const gruppi = {};
+
+          dati.forEach(row => {
+  const chiave = `${row.data} | Vel. ${row.velocita}`;
+
+  const m = parseFloat(row.manubrio);
+  const s = parseFloat(row.sellino);
+
+  if (!gruppi[chiave]) {
+    gruppi[chiave] = { labels: [], manubrio: [], sellino: [], colori: [] };
+  }
+
+  gruppi[chiave].labels.push(row.id);
+  gruppi[chiave].manubrio.push(isNaN(m) ? 0 : m);
+  gruppi[chiave].sellino.push(isNaN(s) ? 0 : s);
+  gruppi[chiave].colori.push(row.superficie === 'sterrato' ? '#e15759' : '#4e79a7');
+});
+
+
+          const datasets = [];
+          const palette = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc949'];
+          let colorIndex = 0;
+
+         // const colore = row.superficie === 'sterrato' ? '#e15759' : '#4e79a7';
+
+          for (const chiave in gruppi) {
+            const g = gruppi[chiave];
+
+            const avg = arr =>
+              arr.length === 0 ? 0 : (arr.reduce((sum, v) => sum + v, 0) / arr.length).toFixed(1);
+
+            const manubrioAvg = avg(g.manubrio);
+            const sellinoAvg = avg(g.sellino);
+
+            for (let i = 0; i < g.labels.length; i++) {
+  datasets.push({
+    label: `Manubrio ${g.labels[i]}`,
+    backgroundColor: g.colori[i],
+    data: [g.manubrio[i]]
+  });
+  datasets.push({
+    label: `Sellino ${g.labels[i]}`,
+    backgroundColor: g.colori[i],
+    data: [g.sellino[i]]
+  });
+}
+
+          
+
+            colorIndex += 2;
+          }
+
+          const firstGroupLabels = Object.values(gruppi)[0].labels;
+
+          if (bikeChart) bikeChart.destroy();
+
+          bikeChart = new Chart(document.getElementById('bikeChart'), {
+            type: tipoGrafico,
+            data: {
+              labels: firstGroupLabels,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { position: 'top' },
+                title: {
+                  display: true,
+                  text: 'Manubrio e Sellino per Data & Velocità'
+                }
+              }
+            }
+          });
+        },
+        error: function(xhr, status, error) {
+      console.error('Errore AJAX:', xhr.responseText || error);
+    }
+      });
+    }
+
+    $('#downloadChart').on('click', function () {
+      const canvas = document.getElementById('bikeChart');
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'grafico_bike.png';
+      link.click();
+    });
+
+
+
+
+
+    </script>
+  </body>
+  </html>

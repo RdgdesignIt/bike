@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Bici</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container mt-4">
+        <h2 class="mb-4">Gestione Biciclette</h2>
+
+        <!-- Menu a tendina per il filtro -->
+        <div class="mb-4">
+            <label for="filtro">Filtra per:</label>
+            <select id="filtro" class="form-select" aria-label="Filtro">
+                <option value="">Seleziona il campo da filtrare...</option>
+                <option value="id">ID</option>
+                <option value="data">Data</option>
+                <option value="velocita">Velocità</option>
+            </select>
+        </div>
+
+        <!-- Campo di input per filtrare il valore -->
+        <div class="mb-4" id="valoreFiltroContainer" style="display:none;">
+            <input type="text" id="valoreFiltro" class="form-control" placeholder="Inserisci il valore da filtrare...">
+        </div>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Velocità</th>
+                    <th>Sellino</th>
+                    <th>Manubrio</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody id="bici-table">
+                <!-- Dati caricati dinamicamente -->
+            </tbody>
+        </table>
+
+        <form id="addBiciForm">
+            <div class="mb-3">
+                <input type="datetime-local" id="data" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <input type="number" id="velocita" class="form-control" placeholder="Velocità" required>
+            </div>
+            <div class="mb-3">
+                <input type="text" id="sellino" class="form-control" placeholder="Sellino" required>
+            </div>
+            <div class="mb-3">
+                <input type="text" id="manubrio" class="form-control" placeholder="Manubrio" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Aggiungi Bici</button>
+        </form>
+    </div>
+
+    <script>
+        // Funzione per caricare i dati con filtro
+        function loadBici(filtro = '', valoreFiltro = '') {
+            $.ajax({
+                url: 'get_bici.php',
+                type: 'GET',
+                data: { filtro: filtro, valoreFiltro: valoreFiltro },
+                dataType: 'html',
+                success: function(response) {
+                    $('#bici-table').html(response);
+                },
+                error: function() {
+                    alert('Errore nel caricamento dei dati.');
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            // Carica i dati iniziali senza filtro
+            loadBici();
+
+            // Quando l'utente seleziona un filtro
+            $('#filtro').change(function() {
+                let filtro = $(this).val();
+                if (filtro !== '') {
+                    // Mostra il campo per inserire il valore del filtro
+                    $('#valoreFiltroContainer').show();
+                } else {
+                    $('#valoreFiltroContainer').hide();
+                }
+            });
+
+            // Quando l'utente inserisce un valore per il filtro
+            $('#valoreFiltro').keyup(function() {
+                let filtro = $('#filtro').val();
+                let valoreFiltro = $(this).val().trim();
+                loadBici(filtro, valoreFiltro);
+            });
+
+            // Gestione del form di aggiunta
+            $('#addBiciForm').submit(function(e) {
+                e.preventDefault();
+                let data = $('#data').val().trim();
+                let velocita = $('#velocita').val().trim();
+                let sellino = $('#sellino').val().trim();
+                let manubrio = $('#manubrio').val().trim();
+                
+                if (data === '' || velocita === '' || sellino === '' || manubrio === '') {
+                    alert('Tutti i campi sono obbligatori.');
+                    return;
+                }
+
+                $.post('add_bici.php', { data: data, velocita: velocita, sellino: sellino, manubrio: manubrio }, function(response) {
+                    if (response === 'success') {
+                        loadBici(); // Ricarica la tabella dopo l'aggiunta
+                        $('#addBiciForm')[0].reset();
+                    } else {
+                        alert('Errore durante l\'aggiunta della bici.');
+                    }
+                }).fail(function() {
+                    alert('Errore nella richiesta al server.');
+                });
+            });
+        });
+
+        // Funzione per eliminare la bici
+        function deleteBici(id) {
+            if (!confirm('Sei sicuro di voler eliminare questa bici?')) return;
+            
+            $.post('delete_bici.php', { id: id }, function(response) {
+                if (response === 'success') {
+                    loadBici(); // Ricarica la tabella dopo l'eliminazione
+                } else {
+                    alert('Errore durante l\'eliminazione della bici.');
+                }
+            }).fail(function() {
+                alert('Errore nella richiesta al server.');
+            });
+        }
+    </script>
+</body>
+</html>

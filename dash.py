@@ -23,6 +23,21 @@ superfici = df["superficie"].dropna().unique()
 superficie = st.sidebar.selectbox("🌍 Superficie", superfici)
 
 
+
+df_sel = df.copy()
+
+
+variabili_grafico = st.sidebar.multiselect(
+    "📈 Seleziona variabili da visualizzare",
+    options=["manubrio", "sellino", "diff_percentuale", "manubrio+sellino"],
+    default=["manubrio"]
+)
+
+
+
+
+
+
 # 🚴‍♂️ Filtro Velocità (multiselect)
 velocita_disponibili = sorted(df["velocita"].dropna().unique())
 velocita_selezionate = st.sidebar.multiselect(
@@ -50,7 +65,17 @@ df = df[
     (df["superficie"].str.lower() == superficie.lower()) &
     (df["velocita"].isin(velocita_selezionate))
 ]
-df_sel = df.copy()
+
+
+
+
+if "manubrio+sellino" in variabili_grafico:
+    df_sel["manubrio+sellino"] = df_sel["manubrio"] + df_sel["sellino"]
+
+
+
+
+
 
 # 🧼 Conversione numerica
 for col in ["manubrio", "sellino", "diff_percentuale"]:
@@ -100,14 +125,33 @@ if not df_sel.empty:
     df_export["escluso_manual"] = df_export.index.isin(da_escludere)
 
     excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-        df_export.to_excel(writer, sheet_name="Analisi Completa", index=False)
-    excel_data = excel_buffer.getvalue()
+with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+    # Foglio con tutti i dati + indicatori
+    df_export.to_excel(writer, sheet_name="Analisi Completa", index=False)
+    
+    # Z-score
+    if not out_z.empty:
+        out_z.to_excel(writer, sheet_name="Outlier Z-score", index=False)
+    
+    # IQR
+    if not out_iqr.empty:
+        out_iqr.to_excel(writer, sheet_name="Outlier IQR", index=False)
+    
+    # ML
+    if not out_ml.empty:
+        out_ml.to_excel(writer, sheet_name="Outlier ML", index=False)
 
-    st.download_button(
-    label="📥 Esporta Analisi in Excel",
+    # Esclusi manualmente
+    if da_escludere:
+        df_esclusi = df.loc[da_escludere]
+        df_esclusi.to_excel(writer, sheet_name="Record Esclusi", index=False)
+
+excel_data = excel_buffer.getvalue()
+
+st.download_button(
+    label="📥 Scarica Analisi Multischeda",
     data=excel_data,
-    file_name="vibrazioni_analisi_completa.xlsx",
+    file_name="vibrazioni_analisi_multi.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
@@ -115,9 +159,9 @@ if not df_sel.empty:
 
 
     # 📋 Riepilogo
-    dev_std = df_sel["diff_percentuale"].std() * 100
-    st.subheader("📋 Riepilogo Diagnostico")
-    st.markdown(f"""
+dev_std = df_sel["diff_percentuale"].std() * 100
+st.subheader("📋 Riepilogo Diagnostico")
+st.markdown(f"""
 - Superficie: **{superficie}**  
 - Record analizzati dopo esclusione: **{len(df_sel)}**  
 - Velocità selezionate: **{', '.join(map(str, velocita_selezionate))} km/h**
@@ -125,13 +169,26 @@ if not df_sel.empty:
 """)
 
     # 📈 Visualizzazioni
-    fig1, ax1 = plt.subplots()
-    ax1.boxplot(df_sel["manubrio"].dropna(), vert=False)
-    st.pyplot(fig1)
+    
 
-    fig2, ax2 = plt.subplots()
-    ax2.scatter(df_sel["sellino"], df_sel["manubrio"], alpha=0.6)
-    st.pyplot(fig2)
+for var in variabili_grafico:
+    fig, ax = plt.subplots()
+    ax.boxplot(df_sel[var].dropna(), vert=False)
+    ax.set_title(f"Distribuzione - {var}")
+    ax.set_xlabel(var)
+    st.pyplot(fig)
+
+
+   
+
+    if "sellino" in variabili_grafico and "manubrio" in variabili_grafico:
+        fig, ax = plt.subplots()
+    ax.scatter(df_sel["sellino"], df_sel["manubrio"], alpha=0.6, color='purple', edgecolors='w')
+    ax.set_xlabel("Sellino")
+    ax.set_ylabel("Manubrio")
+    ax.set_title("🔘 Scatterplot Manubrio vs Sellino")
+    st.pyplot(fig)
+
 
    
 

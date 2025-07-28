@@ -46,6 +46,13 @@ velocita_selezionate = st.sidebar.multiselect(
     default=velocita_disponibili
 )
 
+# ✅ Controllo selezione e filtro dati
+if not velocita_selezionate:
+    st.warning("Seleziona almeno una velocità per visualizzare il grafico.")
+else:
+    df_filtrato = df[df["velocita"].isin(velocita_selezionate)]
+
+    
 
 
 
@@ -169,11 +176,55 @@ st.markdown(f"""
 """)
 
     # 📈 Visualizzazioni
-    
+  # Dizionario per raccogliere tutti gli outlier boxplot
+import numpy as np
+import matplotlib.pyplot as plt
+
+st.subheader("📊 Distribuzione diff_percentuale + Outlier")
+
+# 🧮 Calcolo IQR
+var = "diff_percentuale"
+st.subheader("📈 Distribuzione diff_percentuale con Outlier evidenziati")
+
+# ✅ Converte i dati in numerico (e forza i NaN dove non coerenti)
+var = "diff_percentuale"
+df_filtrato[var] = pd.to_numeric(df_filtrato[var], errors="coerce")
+df_sel[var] = pd.to_numeric(df_sel[var], errors='coerce')
+
+# 🧮 Calcola IQR per outlier
+Q1 = df_filtrato[var].quantile(0.25)
+Q3 = df_filtrato[var].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# 🔍 Estrai outlier e dati validi
+outliers = df_filtrato[(df_filtrato[var] < lower_bound) | (df_filtrato[var] > upper_bound)]
+valori_validi = df_filtrato[var].dropna().values
+
+fig, ax = plt.subplots()
+ax.boxplot(valori_validi, vert=False, showfliers=False)
+ax.scatter(outliers[var], np.ones(len(outliers)), color="red", label="Outlier")
+ax.set_xlabel(var)
+ax.set_title("Boxplot diff_percentuale con Outlier")
+ax.legend()
+st.pyplot(fig)
+
+# 📋 Tabella riepilogativa degli outlier
+st.markdown(f"""
+**Totale outlier rilevati**: {len(outliers)}  
+**Limiti IQR**: `{lower_bound:.2f}` → `{upper_bound:.2f}`
+""")
+
+if not outliers.empty:
+    st.dataframe(outliers[["data", "luogo", "velocita", "manubrio", "sellino", var]])
+else:
+    st.info("✅ Nessun outlier rilevato secondo la regola IQR.")
+
 
 for var in variabili_grafico:
     fig, ax = plt.subplots()
-    ax.boxplot(df_sel[var].dropna(), vert=False)
+    ax.boxplot(df_filtrato[var].dropna(), vert=False)
     ax.set_title(f"Distribuzione - {var}")
     ax.set_xlabel(var)
     st.pyplot(fig)
